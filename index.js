@@ -25,21 +25,28 @@ app.use(cors(corsOptions));
 mongoose.connect(mongoURI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
-  socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
+  serverSelectionTimeoutMS: 60000, // Increase timeout to 60 seconds
+  socketTimeoutMS: 45000,
+  family: 4 // Force IPv4
 }).then(() => {
   console.log('Connected to MongoDB successfully');
 }).catch((err) => {
   console.error('MongoDB connection error:', err);
+  process.exit(1); // Exit if cannot connect to database
 });
 
 // Handle MongoDB connection errors
 mongoose.connection.on('error', (err) => {
   console.error('MongoDB connection error:', err);
+  process.exit(1);
 });
 
 mongoose.connection.on('disconnected', () => {
   console.log('MongoDB disconnected');
+});
+
+mongoose.connection.on('connected', () => {
+  console.log('MongoDB connected');
 });
 
 process.on('SIGINT', async () => {
