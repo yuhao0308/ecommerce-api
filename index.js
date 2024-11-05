@@ -84,7 +84,7 @@ app.post("/images", upload.single('image'), (req, res) => {
 
   res.status(201).json({
     success: true,
-    image_url: `http://localhost:${port}/images/${req.file.filename}`
+    image_url: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
   });
 });
 
