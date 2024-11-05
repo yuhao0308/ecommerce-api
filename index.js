@@ -1,5 +1,5 @@
 const port = process.env.PORT || 4000;
-const mongoURI = process.env.MONGODB_URI || "your_mongodb_uri";
+const mongoURI = process.env.MONGODB_URI || "mongodb+srv://ks973111:ks80308030@cluster0.l7ct9.mongodb.net/e-commerce";
 const jwtSecret = process.env.JWT_SECRET || "secret_ecom";
 const express = require("express");
 const app = express();
