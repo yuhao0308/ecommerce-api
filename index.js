@@ -22,7 +22,30 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Database Connection with MongoDB
-mongoose.connect(mongoURI);
+mongoose.connect(mongoURI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+  socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
+}).then(() => {
+  console.log('Connected to MongoDB successfully');
+}).catch((err) => {
+  console.error('MongoDB connection error:', err);
+});
+
+// Handle MongoDB connection errors
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected');
+});
+
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  process.exit(0);
+});
 
 // API Creation
 
@@ -212,6 +235,14 @@ app.delete('/products/:id', async (req, res) => {
 // List all products with optional sorting, limiting, and category filtering
 app.get('/products', async (req, res) => {
   try {
+    // Check if MongoDB is connected
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(500).json({
+        success: false,
+        message: "Database connection is not ready"
+      });
+    }
+
     // Get query parameters for sorting, limiting, and filtering by category
     const sort = req.query.sort || null;
     const limit = parseInt(req.query.limit) || 0; // Default to no limit if not provided
