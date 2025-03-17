@@ -1,6 +1,12 @@
 const port = process.env.PORT || 4000;
 const mongoURI = process.env.MONGODB_URI || "mongodb+srv://ks973111:ks80308030@cluster0.l7ct9.mongodb.net/e-commerce";
 const jwtSecret = process.env.JWT_SECRET || "secret_ecom";
+
+// Set NODE_ENV for production
+if (process.env.PORT) {
+  process.env.NODE_ENV = 'production';
+}
+
 const express = require("express");
 const app = express();
 const mongoose = require("mongoose");
@@ -54,6 +60,37 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// Add this function after the mongoose connection setup
+// Helper function to transform image URLs
+function transformImageUrls(data, req) {
+  if (!data) return data;
+  
+  // If in production, ensure HTTPS URLs
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Function to transform a single item
+  const transformItem = (item) => {
+    if (item.image) {
+      // Check if the image URL is a full URL or a relative path
+      if (item.image.startsWith('http://')) {
+        // Replace http:// with https:// in production
+        item.image = isProduction ? item.image.replace('http://', 'https://') : item.image;
+      } else if (!item.image.startsWith('https://') && !item.image.startsWith('/')) {
+        // If it's not a full URL and not starting with /, add the / prefix
+        item.image = `/${item.image}`;
+      }
+    }
+    return item;
+  };
+  
+  // Handle both arrays and single objects
+  if (Array.isArray(data)) {
+    return data.map(item => transformItem({...item._doc || item}));
+  }
+  
+  return transformItem({...data._doc || data});
+}
+
 // API Creation
 
 app.get("/", (req, res)=>{
@@ -72,7 +109,11 @@ const storage = multer.diskStorage({
 const upload = multer({storage: storage})
 
 // Creating Upload Endpoint for images
-app.use('/images', express.static(path.join(__dirname, 'uploads/images')))
+app.use('/images', express.static(path.join(__dirname, 'uploads/images'), {
+  maxAge: '1d', // Set cache for 1 day
+  etag: true,
+  lastModified: true
+}))
 
 app.post("/images", upload.single('image'), (req, res) => {
   if (!req.file) {
@@ -82,9 +123,14 @@ app.post("/images", upload.single('image'), (req, res) => {
     });
   }
 
+  // Use absolute URL with HTTPS when in production, otherwise use relative URL
+  const baseUrl = process.env.NODE_ENV === 'production'
+    ? `https://${req.get('host')}`
+    : '';
+  
   res.status(201).json({
     success: true,
-    image_url: `/images/${req.file.filename}`
+    image_url: `${baseUrl}/images/${req.file.filename}`
   });
 });
 
@@ -239,29 +285,20 @@ app.delete('/products/:id', async (req, res) => {
 });
 
 
-// List all products with optional sorting, limiting, and category filtering
+// Get all products with filtering, sorting, and pagination options
 app.get('/products', async (req, res) => {
   try {
-    // Check if MongoDB is connected
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(500).json({
-        success: false,
-        message: "Database connection is not ready"
-      });
-    }
+    const { category, limit = 10, sort = '' } = req.query;
 
-    // Get query parameters for sorting, limiting, and filtering by category
-    const sort = req.query.sort || null;
-    const limit = parseInt(req.query.limit) || 0; // Default to no limit if not provided
-    const category = req.query.category || null; // Get category from query if provided
-
-    // Define filter options
+    // Initialize filter options
     let filterOptions = {};
+
+    // Add filtering by category if specified
     if (category) {
-      filterOptions.category = category; // Add category filter if provided
+      filterOptions.category = category;
     }
 
-    // Define sort options if requested
+    // Sort options
     let sortOptions = {};
     if (sort === 'latest') {
       sortOptions = { createdAt: -1 }; // Sort by `createdAt` field in descending order for latest products
@@ -270,11 +307,14 @@ app.get('/products', async (req, res) => {
     // Fetch products from the database with optional filtering, sorting, and limiting
     const products = await Product.find(filterOptions).sort(sortOptions).limit(limit);
 
+    // Transform product data to fix image URLs
+    const transformedProducts = transformImageUrls(products, req);
+
     // Return the products
     return res.status(200).json({
       success: true,
-      count: products.length,
-      products,
+      count: transformedProducts.length,
+      products: transformedProducts,
     });
   } catch (error) {
     return res.status(500).json({
@@ -304,10 +344,12 @@ app.get('/products/:id', async (req, res) => {
       });
     }
 
-    // Return the found product
+    // Transform product data to fix image URLs
+    const transformedProduct = transformImageUrls(product, req);
+
     return res.status(200).json({
       success: true,
-      product,
+      product: transformedProduct,
     });
   } catch (error) {
     return res.status(500).json({
