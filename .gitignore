@@ -17,8 +17,10 @@ pids
 *.seed
 *.log
 
-# User uploads
-uploads/
+# User uploads - keep product images
+# uploads/
+# Do exclude large temporary uploads
+uploads/temp/
 
 # Build and distribution files
 dist/

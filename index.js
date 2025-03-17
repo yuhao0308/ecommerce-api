@@ -72,7 +72,7 @@ const storage = multer.diskStorage({
 const upload = multer({storage: storage})
 
 // Creating Upload Endpoint for images
-app.use('/images', express.static('uploads/images'))
+app.use('/images', express.static(path.join(__dirname, 'uploads/images')))
 
 app.post("/images", upload.single('image'), (req, res) => {
   if (!req.file) {
@@ -84,7 +84,7 @@ app.post("/images", upload.single('image'), (req, res) => {
 
   res.status(201).json({
     success: true,
-    image_url: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+    image_url: `/images/${req.file.filename}`
   });
 });
 
