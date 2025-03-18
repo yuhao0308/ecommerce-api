@@ -20,7 +20,7 @@ const { count } = require("console");
 app.use(express.json());
 // Allowing Cross Origin Resource Sharing for Admin and Frontend
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://ecommerce-ui-production.up.railway.app'], // Allow requests from these origins
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://ecommerce-ui-production.up.railway.app', 'https://web-production-52db.up.railway.app'], // Allow requests from these origins
   methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify allowed methods
   credentials: true // Allow credentials (if needed)
 };
