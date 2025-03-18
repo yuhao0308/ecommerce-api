@@ -20,7 +20,7 @@ const { count } = require("console");
 app.use(express.json());
 // Allowing Cross Origin Resource Sharing for Admin and Frontend
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://ecommerce-ui-production.up.railway.app', 'https://web-production-52db.up.railway.app'], // Allow requests from these origins
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'https://web-production-52db.up.railway.app'], 
   methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify allowed methods
   credentials: true // Allow credentials (if needed)
 };
@@ -67,6 +67,8 @@ function transformImageUrls(data, req) {
   
   // If in production, ensure HTTPS URLs
   const isProduction = process.env.NODE_ENV === 'production';
+  const host = req ? req.get('host') : '';
+  const baseUrl = isProduction ? `https://${host}` : '';
   
   // Function to transform a single item
   const transformItem = (item) => {
@@ -75,9 +77,19 @@ function transformImageUrls(data, req) {
       if (item.image.startsWith('http://')) {
         // Replace http:// with https:// in production
         item.image = isProduction ? item.image.replace('http://', 'https://') : item.image;
-      } else if (!item.image.startsWith('https://') && !item.image.startsWith('/')) {
-        // If it's not a full URL and not starting with /, add the / prefix
-        item.image = `/${item.image}`;
+      } else if (item.image.startsWith('https://')) {
+        // Already a full HTTPS URL, leave it as is
+        return item;
+      } else {
+        // For relative paths, add the full base URL in production
+        if (isProduction) {
+          // If path starts with a slash, remove it to avoid double slashes
+          const imagePath = item.image.startsWith('/') ? item.image.substring(1) : item.image;
+          item.image = `${baseUrl}/${imagePath}`;
+        } else if (!item.image.startsWith('/')) {
+          // In development, just ensure it starts with a slash
+          item.image = `/${item.image}`;
+        }
       }
     }
     return item;
@@ -109,11 +121,16 @@ const storage = multer.diskStorage({
 const upload = multer({storage: storage})
 
 // Creating Upload Endpoint for images
-app.use('/images', express.static(path.join(__dirname, 'uploads/images'), {
+app.use('/images', (req, res, next) => {
+  // Add CORS headers specifically for images
+  res.header('Access-Control-Allow-Origin', '*'); // Allow from any origin
+  res.header('Cache-Control', 'max-age=86400'); // Cache for 1 day
+  next();
+}, express.static(path.join(__dirname, 'uploads/images'), {
   maxAge: '1d', // Set cache for 1 day
   etag: true,
   lastModified: true
-}))
+}));
 
 app.post("/images", upload.single('image'), (req, res) => {
   if (!req.file) {
@@ -128,9 +145,12 @@ app.post("/images", upload.single('image'), (req, res) => {
     ? `https://${req.get('host')}`
     : '';
   
+  // Ensure the path is correct for images
+  const imagePath = `images/${req.file.filename}`;
+  
   res.status(201).json({
     success: true,
-    image_url: `${baseUrl}/images/${req.file.filename}`
+    image_url: baseUrl ? `${baseUrl}/${imagePath}` : `/${imagePath}`
   });
 });
 
