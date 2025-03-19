@@ -308,7 +308,7 @@ app.delete('/products/:id', async (req, res) => {
 // Get all products with filtering, sorting, and pagination options
 app.get('/products', async (req, res) => {
   try {
-    const { category, limit = 10, sort = '' } = req.query;
+    const { category, sort = '' } = req.query;
 
     // Initialize filter options
     let filterOptions = {};
