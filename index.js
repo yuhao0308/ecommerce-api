@@ -308,28 +308,35 @@ app.delete('/products/:id', async (req, res) => {
 // Get all products with filtering, sorting, and pagination options
 app.get('/products', async (req, res) => {
   try {
-    const { category, sort = '' } = req.query;
-
+    const { category, sort = '', limit = 0 } = req.query;
+    
     // Initialize filter options
     let filterOptions = {};
-
+    
     // Add filtering by category if specified
     if (category) {
       filterOptions.category = category;
     }
-
+    
     // Sort options
     let sortOptions = {};
     if (sort === 'latest') {
-      sortOptions = { createdAt: -1 }; // Sort by `createdAt` field in descending order for latest products
+      sortOptions = { createdAt: -1 };
     }
-
+    
+    // Parse limit as an integer (limit of 0 means no limit)
+    const limitValue = parseInt(limit) || 0;
+    
     // Fetch products from the database with optional filtering, sorting, and limiting
-    const products = await Product.find(filterOptions).sort(sortOptions).limit(limit);
-
+    const query = Product.find(filterOptions).sort(sortOptions);
+    if (limitValue > 0) {
+      query.limit(limitValue);
+    }
+    const products = await query;
+    
     // Transform product data to fix image URLs
     const transformedProducts = transformImageUrls(products, req);
-
+    
     // Return the products
     return res.status(200).json({
       success: true,
