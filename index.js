@@ -17,6 +17,9 @@ const path = require("path");
 const cors = require("cors");
 const { count } = require("console");
 
+// Import the Cloudinary configuration
+const { upload } = require('./config/cloudinary');
+
 app.use(express.json());
 // Allowing Cross Origin Resource Sharing for Admin and Frontend
 const corsOptions = {
@@ -111,14 +114,15 @@ app.get("/", (req, res)=>{
 
 // Image Storage Engine
 
-const storage = multer.diskStorage({
-  destination: './uploads/images',
-  filename: (req, file, cb)=>{
-    return cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`)
-  }
-})
+// Remove or comment out the old multer storage configuration
+// const storage = multer.diskStorage({
+//   destination: './uploads/images',
+//   filename: (req, file, cb)=>{
+//     return cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`)
+//   }
+// })
 
-const upload = multer({storage: storage})
+// const upload = multer({storage: storage})
 
 // Creating Upload Endpoint for images
 app.use('/images', (req, res, next) => {
@@ -132,28 +136,29 @@ app.use('/images', (req, res, next) => {
   lastModified: true
 }));
 
-app.post("/images", upload.single('image'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({
+// Update the image upload endpoint
+app.post("/images", upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Image upload failed. No file was provided.",
+      });
+    }
+
+    // The image URL is automatically available in req.file.path
+    res.status(201).json({
+      success: true,
+      image_url: req.file.path // This is the Cloudinary URL
+    });
+  } catch (error) {
+    console.error('Error uploading to Cloudinary:', error);
+    res.status(500).json({
       success: false,
-      message: "Image upload failed. No file was provided.",
+      message: "Error uploading image to cloud storage"
     });
   }
-
-  // Use absolute URL with HTTPS when in production, otherwise use relative URL
-  const baseUrl = process.env.NODE_ENV === 'production'
-    ? `https://${req.get('host')}`
-    : '';
-  
-  // Ensure the path is correct for images
-  const imagePath = `images/${req.file.filename}`;
-  
-  res.status(201).json({
-    success: true,
-    image_url: baseUrl ? `${baseUrl}/${imagePath}` : `/${imagePath}`
-  });
 });
-
 
 // Schema for Creating Products
 const Product = mongoose.model("Product", {
